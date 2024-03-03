@@ -5,12 +5,13 @@ wifi.connect()
 
 # Module import and install
 try:
-    import ulogging
+    import logging
 except ImportError as e:
-    import upip
-    upip.install('pkg_resources')
-    upip.install('pycopy-ulogging')
-    upip.install('picoweb')
+    import mip
+    mip.install('pkg_resources')
+    mip.install('logging')
+
+
 
 # App run
 import webapp

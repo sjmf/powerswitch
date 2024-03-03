@@ -210,7 +210,7 @@ class WebApp:
             #print(req, "After response write")
         except Exception as e:
             if self.debug >= 0:
-                self.log.exc(e, "%.3f %s %s %r" % (utime.time(), req, writer, e))
+                self.log.error("%.3f %s %s %r" % (utime.time(), req, writer, e))
             yield from self.handle_exc(req, writer, e)
 
         if close is not False:
@@ -305,10 +305,10 @@ class WebApp:
 
     def run(self, host="127.0.0.1", port=8081, debug=False, lazy_init=False, log=None):
         if log is None and debug >= 0:
-            import ulogging
-            log = ulogging.getLogger("picoweb")
+            import logging
+            log = logging.getLogger("picoweb")
             if debug > 0:
-                log.setLevel(ulogging.DEBUG)
+                log.setLevel(logging.DEBUG)
         self.log = log
         gc.collect()
         self.debug = int(debug)

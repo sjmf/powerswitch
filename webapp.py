@@ -1,7 +1,7 @@
 #
 # This is a picoweb example showing handling of HTTP Basic authentication.
 #
-import ulogging
+import logging
 import ubinascii
 import uasyncio
 import picoweb
@@ -17,7 +17,7 @@ USERNAME = "admin"
 PASSWORD = "password"
 
 app = picoweb.WebApp(None)
-log = ulogging.getLogger("picoweb")
+log = logging.getLogger("picoweb")
 
 # GPIO Control
 write_pin = machine.Pin(5, machine.Pin.OUT, value=0)
@@ -116,6 +116,6 @@ def readPin(req, resp):
     yield from resp.awrite("{}".format(read_pin.value()))
 
 
-ulogging.basicConfig(level=ulogging.INFO)
+logging.basicConfig(level=logging.INFO)
 
 app.run(host=HOST, port=PORT, debug=DEBUG)
