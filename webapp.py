@@ -19,8 +19,8 @@ app = picoweb.WebApp(None)
 log = ulogging.getLogger("picoweb")
 
 # GPIO Control
-led1 = machine.Pin(5, machine.Pin.OUT, value=0)
-sw_1 = machine.Pin(4, machine.Pin.IN, machine.Pin.PULL_UP)
+write_pin = machine.Pin(5, machine.Pin.OUT, value=0)
+read_pin = machine.Pin(4, machine.Pin.IN, machine.Pin.PULL_UP)
 
 #
 # Decorator for HTTP Basic Auth
@@ -75,7 +75,7 @@ def led_control(req, resp):
     else:  # GET, etc.
         req.parse_qs()
 
-    led1.value(int(req.form["value"]))
+    write_pin.value(int(req.form["value"]))
     yield from picoweb.start_response(resp)
 
 
@@ -83,11 +83,9 @@ def led_control(req, resp):
 @require_auth
 def led_pulse(req, resp):
     
-    reps = 11
-    while reps > 0:
-        time.sleep(0.5)
-        led1.value(reps % 2)
-        reps = reps - 1
+    write_pin.value(1)
+    time.sleep(0.1)
+    write_pin.value(0)
 
     yield from picoweb.start_response(resp)
 
@@ -95,9 +93,9 @@ def led_pulse(req, resp):
 @app.route("/read")
 @require_auth
 def readPin(req, resp):
-    req.parse_qs()
+    
     yield from picoweb.start_response(resp)
-    yield from resp.awrite("{}".format(sw_1.value()))
+    yield from resp.awrite("{}".format(read_pin.value()))
 
 
 ulogging.basicConfig(level=ulogging.INFO)

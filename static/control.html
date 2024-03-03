@@ -3,29 +3,33 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>LED Control</title>
+<title>PC Power Switch</title>
 <link href="static/styles.css" type="text/css" rel="stylesheet" media="screen">
 </head>
-<body>
+<body class="">
 <!-- based loosely on https://lastminuteengineers.com/creating-esp8266-web-server-arduino-ide/ -->
-<h1>ESP8266 Web Server</h1>
-<h3>LED Control</h3>
+<h1>PC Power Switch</h1>
 
 <form id="control" action="/led" method="post">
-    <p>LED1 Control</p>
-    <button type="submit" class="button button-on" value="1">ON</button>
-    <button type="submit" class="button button-off" value="0">OFF</button>
-    <button type="submit" class="button button-pulse" formAction="/pulse" value="1">Pulse</button>
+    <p>Power Button (Momentary)</p>
+<!--    <button type="submit" class="button button-on" value="1">ON</button>
+    <button type="submit" class="button button-off" value="0">OFF</button>-->
+    <button type="submit" class="button button-pulse" formAction="/pulse" value="1">Press</button>
 </form>
 
 <div>
-    <p>Read Pin Status</p>
-    <span id="status"></span>
-    <p>Last read at: <span id="last"></span></p>
+    <p>PC Power Status</p>
+    <div>
+        <div class="power-indicator"></div>
+    </div>
+    
+    <p>Last read: <span id="last"></span>, status <span id="status"></span></p>
 </div>
 
 <script type="text/javascript">
 (function() {
+    const power_on_class = "power-on"
+    const power_off_class= "power-off"
 
     document.addEventListener( "DOMContentLoaded", function() {
 
@@ -34,7 +38,7 @@
         let form = document.getElementById( "control" )
         form.addEventListener( "submit", function( e ) {
             e.preventDefault();
-            console.log(e)
+            // console.log(e)
             let xhr = new XMLHttpRequest()
 
             // Decide which formAction to use (as this is NOT automatic!)
@@ -58,8 +62,11 @@
         // 
         let status = document.getElementById("status")
         let last = document.getElementById("last")
+        let body = document.querySelector('body')
         let readPin = function() {
             let xhr = new XMLHttpRequest()
+            xhr.timeout = 2500;
+
             let handler = function(evt){
                 window.clearTimeout(readPin)
                 window.setTimeout(readPin, 2500)
@@ -68,12 +75,27 @@
                 // console.log(evt)
                 status.innerHTML = evt.target.response
 
+                if(evt.target.response === "1") {
+                    // Floating
+                    body.className = power_off_class
+                } else if (evt.target.response === "0") {
+                    // Pulled down
+                    body.className = power_on_class
+                } else {
+                    body.className = ""
+                }
+
                 // Set time
                 last.innerHTML = new Date().toLocaleString()
             }
 
             xhr.addEventListener("load", handler)
             xhr.addEventListener("error", handler)
+            xhr.addEventListener("timeout", () => {
+                window.clearTimeout(readPin)
+                window.setTimeout(readPin, 2500)
+                body.className = "unknown"
+            })
 
             xhr.open("GET", "/read")
             xhr.send()

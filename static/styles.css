@@ -7,13 +7,14 @@ html {
 }
 body{
     margin-top: 50px;
+    transition: color .2s ease-in;
+    background-color: #fff;
+    color: #444444;
 } 
 h1 {
-    color: #444444;
     margin: 50px auto 30px;
 } 
 h3 {
-    color: #444444; 
     margin-bottom: 50px;
 }
 p {
@@ -44,4 +45,31 @@ p {
 }
 .button-off:active {
     background-color: #2c3e50;
+}
+body.power-on {
+    background: #aadddd;
+}
+body.power-off {
+    background: #333333;
+    color: #eeeeee;
+}
+div.power-indicator {
+    transition: all .2s ease-in;
+    width: 30px;
+    height: 30px;
+    margin: 15px auto;
+    border: 1px solid #353;
+    border-radius: 100%;
+    background: #888;
+}
+body.power-on div.power-indicator {
+    background: #3F3;
+    border: 1px solid #efe;
+    box-shadow: 0px 0px 20px 10px #afa;
+}
+body.power-off div.power-indicator {
+    background: #222;
+}
+body.unknown span#status:after {
+    content:  " (timed out)";
 }
