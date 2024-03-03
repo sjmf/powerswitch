@@ -4,17 +4,34 @@
 import logging
 import ubinascii
 import uasyncio
-import picoweb
 import machine
 import time
+import ujson
+import picoweb
 
-DEBUG=True
 
-HOST="0.0.0.0"
-PORT=80
+config = {}
+try:
+    # Load config from file
+    with open('config.json', 'r') as f:
+        config = ujson.loads(f.read())
 
-USERNAME = "admin"
-PASSWORD = "password"
+    cset = set(['host', 'password', 'debug', 'port', 'username'])
+
+    if cset not in set(config.keys()):
+        raise KeyError("Config missing from file. Overwriting.")
+except:
+    config = {
+        'debug': True,
+        'host': "0.0.0.0",
+        'port': 80,
+        'username': "admin",
+        'password': "password"
+    }
+    with open('config.json', 'w') as f:
+        f.write(ujson.dumps(config))
+
+print(config)
 
 app = picoweb.WebApp(None)
 log = logging.getLogger("picoweb")
@@ -41,7 +58,7 @@ def require_auth(func):
         auth = ubinascii.a2b_base64(auth).decode()
         req.username, req.passwd = auth.split(":", 1)
 
-        if req.username == USERNAME and req.passwd == PASSWORD:
+        if req.username == config['username'] and req.passwd == config['password']:
             yield from func(req, resp)
         else:
             yield from picoweb.start_response(resp, status=UNAUTHORIZED_STATUS)
@@ -118,4 +135,4 @@ def readPin(req, resp):
 
 logging.basicConfig(level=logging.INFO)
 
-app.run(host=HOST, port=PORT, debug=DEBUG)
+app.run(host=config['host'], port=config['port'], debug=config['debug'])

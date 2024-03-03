@@ -1,0 +1,7 @@
+{
+    "host": "0.0.0.0",
+    "password": "password",
+    "debug": true,
+    "port": 80,
+    "username": "admin"
+}
