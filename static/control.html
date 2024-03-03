@@ -24,86 +24,13 @@
     </div>
     
     <p>Last read: <span id="last"></span>, status <span id="status"></span></p>
+    <label for="read">
+        <input type="checkbox" id="read" checked/>
+        Poll server for power status
+    </label>
 </div>
 
-<script type="text/javascript">
-(function() {
-    const power_on_class = "power-on"
-    const power_off_class= "power-off"
-
-    document.addEventListener( "DOMContentLoaded", function() {
-
-        // Handle form control submission by AJAX (without page reload or navigation)
-        // 
-        let form = document.getElementById( "control" )
-        form.addEventListener( "submit", function( e ) {
-            e.preventDefault();
-            // console.log(e)
-            let xhr = new XMLHttpRequest()
-
-            // Decide which formAction to use (as this is NOT automatic!)
-            // If button has a formAction attribute, use that over form.action:
-            const parentAction = (new URL(form.action)).pathname
-            const buttonAction = (new URL(e.submitter.formAction)).pathname
-            const href = (new URL(window.location.href)).pathname
-
-            const url = (buttonAction == href) ? parentAction : buttonAction
-
-            xhr.open("POST", url)
-            xhr.setRequestHeader("Content-Type", "application/json")
-            xhr.send("value=" + e.submitter.value)
-
-            console.log("sent XHR Request to " + url)
-            e.returnValue = false
-            return false
-        }, false);
-
-        // Handle polling of read pin
-        // 
-        let status = document.getElementById("status")
-        let last = document.getElementById("last")
-        let body = document.querySelector('body')
-        let readPin = function() {
-            let xhr = new XMLHttpRequest()
-            xhr.timeout = 2500;
-
-            let handler = function(evt){
-                window.clearTimeout(readPin)
-                window.setTimeout(readPin, 2500)
-
-                // Show status
-                // console.log(evt)
-                status.innerHTML = evt.target.response
-
-                if(evt.target.response === "1") {
-                    // Floating
-                    body.className = power_off_class
-                } else if (evt.target.response === "0") {
-                    // Pulled down
-                    body.className = power_on_class
-                } else {
-                    body.className = ""
-                }
-
-                // Set time
-                last.innerHTML = new Date().toLocaleString()
-            }
-
-            xhr.addEventListener("load", handler)
-            xhr.addEventListener("error", handler)
-            xhr.addEventListener("timeout", () => {
-                window.clearTimeout(readPin)
-                window.setTimeout(readPin, 2500)
-                body.className = "unknown"
-            })
-
-            xhr.open("GET", "/read")
-            xhr.send()
-        }
-        readPin()
-    });
-})();
-</script>
+<script src="static/control.js" type="text/javascript"></script>
 
 </body>
 </html>
