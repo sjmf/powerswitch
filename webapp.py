@@ -3,6 +3,7 @@
 #
 import ulogging
 import ubinascii
+import uasyncio
 import picoweb
 import machine
 import time
@@ -79,21 +80,38 @@ def led_control(req, resp):
     yield from picoweb.start_response(resp)
 
 
+#
+# Bring pin high for specified duration only
 @app.route("/pulse")
 @require_auth
 def led_pulse(req, resp):
     
+    yield from req.read_form_data()
+    yield from picoweb.start_response(resp)
+    
+    # Handle optional duration argument
+    time_ms = 100
+    try:
+        time_ms = int(req.form['duration'])
+        if time_ms < 1 or time_ms > 20000:
+            log.info("duration = {}".format(time_ms))
+            return
+    except (TypeError, ValueError, KeyError) as e:
+        log.error(e)
+
+    # Pull pin high for specified duration
     write_pin.value(1)
-    time.sleep(0.1)
+    await uasyncio.sleep_ms(time_ms)
     write_pin.value(0)
 
-    yield from picoweb.start_response(resp)
 
-
+# 
+# Read from the read pin
 @app.route("/read")
 @require_auth
 def readPin(req, resp):
-    
+    req.parse_qs()
+
     yield from picoweb.start_response(resp)
     yield from resp.awrite("{}".format(read_pin.value()))
 
