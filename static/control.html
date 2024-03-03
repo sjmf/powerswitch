@@ -1,0 +1,87 @@
+<!DOCTYPE html> 
+<html>
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>LED Control</title>
+<link href="static/styles.css" type="text/css" rel="stylesheet" media="screen">
+</head>
+<body>
+<!-- based loosely on https://lastminuteengineers.com/creating-esp8266-web-server-arduino-ide/ -->
+<h1>ESP8266 Web Server</h1>
+<h3>LED Control</h3>
+
+<form id="control" action="/led" method="post">
+    <p>LED1 Control</p>
+    <button type="submit" class="button button-on" value="1">ON</button>
+    <button type="submit" class="button button-off" value="0">OFF</button>
+    <button type="submit" class="button button-pulse" formAction="/pulse" value="1">Pulse</button>
+</form>
+
+<div>
+    <p>Read Pin Status</p>
+    <span id="status"></span>
+    <p>Last read at: <span id="last"></span></p>
+</div>
+
+<script type="text/javascript">
+(function() {
+
+    document.addEventListener( "DOMContentLoaded", function() {
+
+        // Handle form control submission by AJAX (without page reload or navigation)
+        // 
+        let form = document.getElementById( "control" )
+        form.addEventListener( "submit", function( e ) {
+            e.preventDefault();
+            console.log(e)
+            let xhr = new XMLHttpRequest()
+
+            // Decide which formAction to use (as this is NOT automatic!)
+            // If button has a formAction attribute, use that over form.action:
+            const parentAction = (new URL(form.action)).pathname
+            const buttonAction = (new URL(e.submitter.formAction)).pathname
+            const href = (new URL(window.location.href)).pathname
+
+            const url = (buttonAction == href) ? parentAction : buttonAction
+
+            xhr.open("POST", url)
+            xhr.setRequestHeader("Content-Type", "application/json")
+            xhr.send("value=" + e.submitter.value)
+
+            console.log("sent XHR Request to " + url)
+            e.returnValue = false
+            return false
+        }, false);
+
+        // Handle polling of read pin
+        // 
+        let status = document.getElementById("status")
+        let last = document.getElementById("last")
+        let readPin = function() {
+            let xhr = new XMLHttpRequest()
+            let handler = function(evt){
+                window.clearTimeout(readPin)
+                window.setTimeout(readPin, 2500)
+
+                // Show status
+                // console.log(evt)
+                status.innerHTML = evt.target.response
+
+                // Set time
+                last.innerHTML = new Date().toLocaleString()
+            }
+
+            xhr.addEventListener("load", handler)
+            xhr.addEventListener("error", handler)
+
+            xhr.open("GET", "/read")
+            xhr.send()
+        }
+        readPin()
+    });
+})();
+</script>
+
+</body>
+</html>
