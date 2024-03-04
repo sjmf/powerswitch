@@ -1,118 +1,143 @@
 #
 # This is a picoweb example showing handling of HTTP Basic authentication.
 #
+from microdot import Microdot, send_file
+
 import logging
 import ubinascii
 import uasyncio
 import machine
 import time
 import ujson
-import picoweb
 
 
-config = {}
-try:
-    # Load config from file
-    with open('config.json', 'r') as f:
-        config = ujson.loads(f.read())
+def load_config():
+    config = {}
+    try:
+        # Load config from file
+        with open('config.json', 'r') as f:
+            config = ujson.loads(f.read())
 
-    cset = set(['host', 'password', 'debug', 'port', 'username'])
+        cset = set(['host', 'password', 'debug', 'port', 'username'])
 
-    if cset not in set(config.keys()):
-        raise KeyError("Config missing from file. Overwriting.")
-except:
-    config = {
-        'debug': True,
-        'host': "0.0.0.0",
-        'port': 80,
-        'username': "admin",
-        'password': "password"
-    }
-    with open('config.json', 'w') as f:
-        f.write(ujson.dumps(config))
+        if cset not in set(config.keys()):
+            raise KeyError("Config missing from file. Overwriting.")
+    except:
+        config = {
+            'debug': True,
+            'host': "0.0.0.0",
+            'port': 80,
+            'username': "admin",
+            'password': "password"
+        }
+        with open('config.json', 'w') as f:
+            f.write(ujson.dumps(config))
+    finally:
+        return config
 
-print(config)
-
-app = picoweb.WebApp(None)
-log = logging.getLogger("picoweb")
+config = load_config()
+log = logging.getLogger(__name__)
+level = logging.DEBUG if config['debug'] else logging.INFO
+logging.basicConfig(level=level)
 
 # GPIO Control
 write_pin = machine.Pin(5, machine.Pin.OUT, value=0)
 read_pin = machine.Pin(4, machine.Pin.IN, machine.Pin.PULL_UP)
 
+log.info(config)
+
+app = Microdot()
+
 #
 # Decorator for HTTP Basic Auth
-def require_auth(func):
+@app.before_request
+async def require_auth(req):
+    log.info("{} {} {}".format(req.method, req.path, req.client_addr[0]))
     UNAUTHORIZED_STATUS = "401 Unauthorized"
 
-    def auth(req, resp):
-        auth = req.headers.get(b"Authorization")
+    def unauthorized():
+        return UNAUTHORIZED_STATUS, 401, {'WWW-Authenticate': 'Basic realm="ESP8266"'}
+
+    def auth(req):
+        auth = req.headers.get("Authorization")
+        log.debug("checkauth1: {}".format(auth))
         if not auth:
-            yield from resp.awrite(
-                'HTTP/1.0 401 Unauthorized\r\n'
-                'WWW-Authenticate: Basic realm="ESP8266"\r\n'
-                '\r\n')
-            return
+            return unauthorized()
 
         auth = auth.split(None, 1)[1]
-        auth = ubinascii.a2b_base64(auth).decode()
+        auth = str(ubinascii.a2b_base64(auth).decode())
         req.username, req.passwd = auth.split(":", 1)
+        log.debug("checkauth2: {} / {} / {}".format(auth, req.username, req.passwd))
 
         if req.username == config['username'] and req.passwd == config['password']:
-            yield from func(req, resp)
-        else:
-            yield from picoweb.start_response(resp, status=UNAUTHORIZED_STATUS)
-            yield from resp.awrite(UNAUTHORIZED_STATUS)
-            yield from resp.awrite("\r\n")
+            return req.username
 
-    return auth
+        return unauthorized()
+
+    user = auth(req)
+    log.debug("checkauth3: {},{}".format(user, not user))
+    if not user:
+        return unauthorized()
+    req.g.user = user
+
+
+#
+# Serve statics
+@app.route('/static/<path:path>')
+async def static(request, path):
+    if '..' in path:
+        # directory traversal is not allowed
+        return 'Not found', 404
+    return send_file('static/' + path, max_age=86400)
 
 
 #
 # Main route
 @app.route("/")
-@require_auth
-def index(req, resp):
-    yield from picoweb.start_response(resp, content_type = "text/html")
-
-    log.info(str(req))
-    with open('static/control.html', 'r') as f:
-        for line in f:
-            yield from resp.awrite(line)
+async def index(req):
+    try:
+        return send_file('static/control.html')
+    except MemoryError as e:
+        log.error(e)
+    finally:
+        return "Server Error", 500
 
 
 # 
 # GPIO Control route
-@app.route("/led")
-@require_auth
-def led_control(req, resp):
-
-    # Parse Request body (or parameters)
-    if req.method == "POST":
-        yield from req.read_form_data()
-    else:  # GET, etc.
-        req.parse_qs()
-
-    write_pin.value(int(req.form["value"]))
-    yield from picoweb.start_response(resp)
+#@app.route("/led")
+#async def led_control(req):
+#    value = 0
+#    # Parse Request body (or parameters)
+#    try:
+#        if req.method == "POST":
+#            value = int(req.form.get('value'))
+#        else:  # GET, etc.
+#            value = int(req.args.get('value'))
+#    except:
+#        # KeyError, etc
+#        return 'Bad Request', 400
+#
+#    write_pin.value(value)
+#    # return '200 OK', 200
 
 
 #
 # Bring pin high for specified duration only
-@app.route("/pulse")
-@require_auth
-def led_pulse(req, resp):
-    
-    yield from req.read_form_data()
-    yield from picoweb.start_response(resp)
+@app.route("/pulse", methods=['GET', 'POST'])
+async def led_pulse(req):
     
     # Handle optional duration argument
     time_ms = 100
     try:
-        time_ms = int(req.form['duration'])
-        if time_ms < 1 or time_ms > 20000:
+        if req.method == "POST":
+            time_ms = int(req.form.get('duration'))
+        else: # "GET"
+            time_ms = int(req.args.get('duration'))
+
+        if time_ms < 1 or time_ms > 11000:
             log.info("duration = {}".format(time_ms))
-            return
+            return 'Bad Request', 400
     except (TypeError, ValueError, KeyError) as e:
         log.error(e)
 
@@ -121,18 +146,13 @@ def led_pulse(req, resp):
     await uasyncio.sleep_ms(time_ms)
     write_pin.value(0)
 
+    return 'OK', 200
+
 
 # 
 # Read from the read pin
 @app.route("/read")
-@require_auth
-def readPin(req, resp):
-    req.parse_qs()
-
-    yield from picoweb.start_response(resp)
-    yield from resp.awrite("{}".format(read_pin.value()))
-
-
-logging.basicConfig(level=logging.INFO)
+async def readPin(req):
+    return "{}".format(int(read_pin.value()) ^ 1), 200
 
 app.run(host=config['host'], port=config['port'], debug=config['debug'])
